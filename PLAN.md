@@ -3,7 +3,7 @@
 ## Context
 Das Repo `app-sylius` wurde aus `app-starter` erzeugt und enthält zu 100% Template-Boilerplate (`my-laioutr-app` Platzhalter, leere Orchestr-Dirs). Ziel: ein produktionsreifer Nuxt 3 / Laioutr Orchestr API-Wrapper für die Sylius Shop API v2 — analog zum `app-commercetools`-Pattern.
 
-**Scope (vom User festgelegt):** Nur die folgenden Sylius-Entitäten werden abgebildet. Alle GET/read-only, **außer `Wishlist`** — dort dürfen `POST`, `PATCH`, `DELETE` implementiert werden.
+**Scope (vom User festgelegt):** Nur die folgenden Sylius-Entitäten werden abgebildet. Alle GET/read-only, **außer `Wishlist` und `Cart`** — dort dürfen `POST`, `PATCH`, `DELETE` implementiert werden (Cart nur für Line-Item-Operationen: AddToCart, ChangeQuantity, RemoveFromCart; **kein Checkout**).
 
 | Entität | Endpoints (Shop API v2) | Schreibend? |
 |---------|-------------------------|-------------|
@@ -25,8 +25,9 @@ Das Repo `app-sylius` wurde aus `app-starter` erzeugt und enthält zu 100% Templ
 | ProductTaxon | `GET /product-taxons/{id}` | nein |
 | Page (CMS) | `GET /cms/pages`, `GET /cms/pages/{id}` | nein |
 | **Wishlist** | `POST /wishlists`, `GET /wishlists/{token}`, `DELETE /wishlists/{token}`, `PATCH /wishlists/{token}/product`, `PATCH /wishlists/{token}/variant`, `DELETE /wishlists/{token}/products/{productId}`, `DELETE /wishlists/{token}/productVariants/{productVariantId}` | **ja** (POST/PATCH/DELETE) |
+| **Cart** (Order in `cart` state) | `POST /orders` (createCart), `GET /orders/{tokenValue}`, `POST /orders/{tokenValue}/items` (AddToCart), `PATCH /orders/{tokenValue}/items/{orderItemId}` (ChangeQuantity), `DELETE /orders/{tokenValue}/items/{orderItemId}` (RemoveFromCart) | **ja** (POST/PATCH/DELETE — nur Line-Items, kein Checkout) |
 
-**Ausgeschlossen** (nicht in dieser Iteration): Cart/Checkout/Orders, Customer-Auth/Account, Addresses, Payments, Shipping, Taxon-Tree-Navigation (Menu), CMS-Blocks/Collections/Media/Templates, Contact, Geography (Countries/Currencies/Locales).
+**Ausgeschlossen** (nicht in dieser Iteration): Checkout (Addressing, Shipping-/Payment-Method-Selection, Complete), Completed Orders, Customer-Auth/Account, Addresses, Payments (PSP), Shipping-Methods, Taxon-Tree-Navigation (Menu), CMS-Blocks/Collections/Media/Templates, Contact, Geography (Countries/Currencies/Locales).
 
 ---
 
@@ -38,8 +39,9 @@ Das Repo `app-sylius` wurde aus `app-starter` erzeugt und enthält zu 100% Templ
 4. **Locale via `Accept-Language`** — aus `clientEnv.locale`.
 5. **Preise** — Integer in Smallest-Currency-Unit → `Money.fromDecimal(cents/100, currency)`.
 6. **Hydra unwrapping** — Client entpackt `hydra:member` / `hydra:totalItems` transparent.
-7. **Read/Write-Trennung** — Nur Wishlist-Handler sind als `action` implementiert; alle anderen sind `query`/`link`/`componentResolver`. Grep-Check `method: 'POST'|'PATCH'|'PUT'|'DELETE'` darf außerhalb von `orchestr/wishlist/*` und `client/*wishlist*` keine Treffer liefern.
+7. **Read/Write-Trennung** — Nur Wishlist- und Cart-Handler sind als `action` implementiert; alle anderen sind `query`/`link`/`componentResolver`. Grep-Check `method: 'POST'|'PATCH'|'PUT'|'DELETE'` darf außerhalb von `orchestr/wishlist/*`, `orchestr/cart/*` und den entsprechenden Client-Methoden keine Treffer liefern.
 8. **Wishlist-Token in httpOnly-Cookie** — `tokenValue` aus `POST /wishlists` wird als `sylius-wishlist-token` gesetzt; folgende Requests lesen ihn automatisch.
+9. **Cart-Token in httpOnly-Cookie** — `tokenValue` aus `POST /orders` wird als `sylius-cart-token` gesetzt (httpOnly, secure, SameSite=Lax, maxAge 30 Tage). `assertCartExists` erstellt bei Bedarf einen anonymen Cart. Sylius-Carts sind persistent und überleben Session-Ende.
 
 ---
 
@@ -56,7 +58,7 @@ export interface ModuleOptions {
 }
 ```
 
-Runtime-Config: `apiURL` privat, public-Interface leer. Cookie-Konstante: `SYLIUS_WISHLIST_TOKEN_COOKIE = 'sylius-wishlist-token'`.
+Runtime-Config: `apiURL` privat, public-Interface leer. Cookie-Konstanten: `SYLIUS_WISHLIST_TOKEN_COOKIE = 'sylius-wishlist-token'`, `SYLIUS_CART_TOKEN_COOKIE = 'sylius-cart-token'`.
 
 ---
 
@@ -68,10 +70,11 @@ Runtime-Config: `apiURL` privat, public-Interface leer. Cookie-Konstante: `SYLIU
 
 ```
 src/runtime/server/
-├── const/keys.ts                                      # SYLIUS_WISHLIST_TOKEN_COOKIE
+├── const/keys.ts                                      # SYLIUS_WISHLIST_TOKEN_COOKIE, SYLIUS_CART_TOKEN_COOKIE
 ├── client/
 │   ├── index.ts                                       # $fetch-Wrapper, Hydra-Unwrapping, alle Endpoints
-│   └── wishlistTokenCookie.ts                         # get/setWishlistToken(event)
+│   ├── wishlistTokenCookie.ts                         # get/setWishlistToken(event)
+│   └── cartTokenCookie.ts                             # get/setCartToken(event)
 ├── middleware/
 │   └── defineSylius.ts                                # defineSyliusQuery/Action/Link/ComponentResolver
 ├── mappers/
@@ -80,7 +83,8 @@ src/runtime/server/
 ├── orchestr-helper/
 │   ├── products/index.ts                              # centsToDecimal, getMinMaxPrices, Description-Utils
 │   ├── product-variants/index.ts                      # mapVariantOptions, computeAvailability
-│   └── wishlist/index.ts                              # assertWishlistExists (create on demand, set cookie)
+│   ├── wishlist/index.ts                              # assertWishlistExists (create on demand, set cookie)
+│   └── cart/index.ts                                  # assertCartExists (create on demand, set cookie), mapCartLineItems
 └── orchestr/
     ├── plugins/zodFix.ts                              # bleibt
     ├── product/
@@ -131,15 +135,21 @@ src/runtime/server/
     │   ├── base.resolver.ts                           # GET /cms/pages/{id}
     │   ├── by-id.query.ts                             # GET /cms/pages/{id}
     │   └── list.query.ts                              # GET /cms/pages
-    └── wishlist/                                      # WRITES ALLOWED
-        ├── base.resolver.ts                           # GET /wishlists/{token}
-        ├── get-current.query.ts                       # Cookie → GET /wishlists/{token}
-        ├── create.action.ts                           # POST /wishlists, sets cookie
-        ├── add-product.action.ts                      # PATCH /wishlists/{token}/product
-        ├── add-variant.action.ts                     # PATCH /wishlists/{token}/variant
-        ├── remove-product.action.ts                   # DELETE /wishlists/{token}/products/{id}
-        ├── remove-variant.action.ts                   # DELETE /wishlists/{token}/productVariants/{id}
-        └── delete.action.ts                           # DELETE /wishlists/{token}, clears cookie
+    ├── wishlist/                                      # WRITES ALLOWED
+    │   ├── base.resolver.ts                           # GET /wishlists/{token}
+    │   ├── get-current.query.ts                       # Cookie → GET /wishlists/{token}
+    │   ├── create.action.ts                           # POST /wishlists, sets cookie
+    │   ├── add-product.action.ts                      # PATCH /wishlists/{token}/product
+    │   ├── add-variant.action.ts                      # PATCH /wishlists/{token}/variant
+    │   ├── remove-product.action.ts                   # DELETE /wishlists/{token}/products/{id}
+    │   ├── remove-variant.action.ts                   # DELETE /wishlists/{token}/productVariants/{id}
+    │   └── delete.action.ts                           # DELETE /wishlists/{token}, clears cookie
+    └── cart/                                          # WRITES ALLOWED (Line-Items only, kein Checkout)
+        ├── base.resolver.ts                           # CartBase, CartCost, CartLineItems aus /orders/{tokenValue}
+        ├── get-current.query.ts                       # Cookie → GET /orders/{tokenValue}; 404 → Cookie clear, leeres Result
+        ├── add-to-cart.action.ts                      # assertCartExists → POST /orders/{token}/items  {productVariant, quantity}
+        ├── change-quantity.action.ts                  # PATCH /orders/{token}/items/{orderItemId}  {quantity}
+        └── remove-from-cart.action.ts                 # DELETE /orders/{token}/items/{orderItemId}
 ```
 
 *ChannelPricingLogEntry: Kein Shop-API-Endpoint gefunden → siehe Offene Fragen (wird ggf. aus Variant-Response als Fragment ohne eigenen Fetch mitgemappt).*
@@ -164,7 +174,7 @@ src/runtime/server/
 - `getChannels()`, `getChannel(code)`
 - `getCmsPages(params)`, `getCmsPage(id)`
 
-**Write (nur Wishlist):**
+**Write (Wishlist):**
 - `createWishlist({ channelCode })` → `POST /wishlists`
 - `getWishlist(tokenValue)` → `GET /wishlists/{tokenValue}`
 - `deleteWishlist(tokenValue)` → `DELETE /wishlists/{tokenValue}`
@@ -172,6 +182,13 @@ src/runtime/server/
 - `addVariantToWishlist(tokenValue, variantIri)` → `PATCH .../variant`
 - `removeProductFromWishlist(tokenValue, productId)` → `DELETE .../products/{id}`
 - `removeVariantFromWishlist(tokenValue, variantId)` → `DELETE .../productVariants/{id}`
+
+**Write (Cart — nur Line-Items, kein Checkout):**
+- `createCart({ localeCode? })` → `POST /orders` → `{ tokenValue }`
+- `getCart(tokenValue)` → `GET /orders/{tokenValue}`
+- `addCartItem(tokenValue, { productVariant, quantity })` → `POST /orders/{tokenValue}/items`  *(body: `{ productVariant: "/api/v2/shop/product-variants/{code}", quantity: N }`)*
+- `changeCartItemQuantity(tokenValue, orderItemId, { quantity })` → `PATCH /orders/{tokenValue}/items/{orderItemId}` *(Content-Type: `application/merge-patch+json`)*
+- `removeCartItem(tokenValue, orderItemId)` → `DELETE /orders/{tokenValue}/items/{orderItemId}`
 
 ---
 
@@ -190,6 +207,7 @@ src/runtime/server/
 - **Channel** → `Channel` canonical (code, name, baseCurrency, defaultLocale, currencies, locales).
 - **Page** (CMS) → `CmsPage` canonical (slug, name, content, meta).
 - **Wishlist** → `Wishlist` canonical (tokenValue, products[], variants[]).
+- **Cart** → `Cart` canonical: `CartBase` (totalQuantity=`sum(items[].quantity)`, id=`tokenValue`), `CartCost` (`itemsTotal`/`total`/`taxTotal` Integer-Cents → Money mit `currencyCode`), `CartLineItems` (`items[]` → `{id: items[].id, variantId: items[].variant.code, quantity, unitPrice, subtotal, total}`). 404 beim Read → Cookie wird geleert, leeres Cart-Ergebnis zurückgegeben.
 
 **Image-URL:** `{domainOf(apiURL)}/media/cache/resolve/{imageFilter}/{image.path}`.
 
@@ -202,16 +220,17 @@ src/runtime/server/
 3. **Katalog-Relationen** — `product-association/*`, `product-association-type/*`, `product-bundle/*`, `product-bundle-item/*`, `product-review/*`, `catalog-promotion/*`. Verify: Cross-Sells, Bundle-Detail, Review-Listing.
 4. **Channel & CMS** — `channel/*`, `page/*`. Verify: Channel-Listing, CMS-Page-Detail.
 5. **Wishlist (Write)** — `wishlist/*`, Cookie-Helper, `assertWishlistExists`. Verify: Wishlist anlegen, Produkt hinzufügen/entfernen, Cookie persistiert.
-6. **Tests & Docs** — Client-/Mapper-Unit-Tests, read-only Integration-Tests gegen Demo-API (GET), Wishlist manuell gegen lokalen Sylius (nicht gegen Demo), README mit Coverage-Tabelle und Scope-Hinweis.
+6. **Cart (Write, Line-Items only)** — `cart/*`, `cartTokenCookie.ts`, `assertCartExists`. Verify: `AddToCart` erstellt bei leerem Cookie einen Cart und setzt `sylius-cart-token`; `ChangeQuantity` setzt Menge; `RemoveFromCart` entfernt das Item; `GetCurrentCart` liefert konsistente Totals. 404 auf expired Token → Cookie wird geräumt.
+7. **Tests & Docs** — Client-/Mapper-Unit-Tests, read-only Integration-Tests gegen Demo-API (GET), Wishlist manuell gegen lokalen Sylius (nicht gegen Demo), README mit Coverage-Tabelle und Scope-Hinweis.
 
 ---
 
 ## Kritische Dateien
 
-- `src/runtime/server/client/index.ts` — die einzige Stelle, an der `method: 'POST'|'PATCH'|'DELETE'` auftauchen darf (ausschließlich in Wishlist-Methoden).
+- `src/runtime/server/client/index.ts` — die einzige Stelle, an der `method: 'POST'|'PATCH'|'DELETE'` auftauchen darf (ausschließlich in Wishlist- und Cart-Methoden).
 - `src/runtime/server/middleware/defineSylius.ts`
 - `src/runtime/server/orchestr/product/base.resolver.ts` — Referenz-Pattern für alle anderen Resolver.
-- `src/runtime/server/orchestr/wishlist/*` — einzige Mutation-Handler.
+- `src/runtime/server/orchestr/wishlist/*`, `src/runtime/server/orchestr/cart/*` — einzige Mutation-Handler.
 - `src/module.ts`, `src/globalExtensions.ts`, `package.json`.
 
 ---
@@ -226,7 +245,9 @@ src/runtime/server/
 - `mappers/media/*`, `mappers/filters/*`
 - `module.ts` Registrierung (`registerLaioutrApp`, peer-Module-Install)
 
-**NICHT übernommen:** `orchestr/cart/*`, `orchestr-helper/cart/*`, `orchestr/menu/*` (Taxon-Tree ist nicht im Scope).
+Aus `app-commercetools` 1:1 übernommen (nur Line-Item-Teile): `orchestr/cart/base.resolver.ts`, `orchestr/cart/get-current.query.ts`, `orchestr/cart/add-to-cart.action.ts`, `orchestr-helper/cart/*`. `tokenCacheProvider.ts` → `cartTokenCookie.ts` (vereinfacht, nur ein Cookie, kein Refresh-Token).
+
+**NICHT übernommen:** `orchestr/menu/*` (Taxon-Tree ist nicht im Scope), alle Checkout-bezogenen commercetools-Handler (Addressing, Shipping-/Payment-Selection, Order-Complete).
 
 ---
 
@@ -239,8 +260,9 @@ src/runtime/server/
    - `ChannelListQuery`, `ProductOptionListQuery`, `ProductAssociationTypeListQuery`
    - `CmsPageListQuery` (falls Demo-CMS-Pages hat)
 4. Wishlist-Smoke (lokaler Sylius oder Demo falls Endpoint offen): `WishlistCreate` → Cookie gesetzt; `WishlistAddProduct` → Produkt in Liste; `WishlistRemoveProduct` → Liste leer; `WishlistDelete` → 204 und Cookie geleert.
-5. `pnpm test`, `pnpm lint`, `pnpm test:types` — grün.
-6. Grep-Check: `method: ['"](POST|PATCH|PUT|DELETE)['"]` außerhalb `orchestr/wishlist/*` und Wishlist-Client-Methoden → keine Treffer.
+5. Cart-Smoke (lokaler Sylius — Demo nicht mit Writes belasten): `AddToCart {variantCode, quantity: 2}` bei leerem Cookie → neuer Cart wird erstellt, `sylius-cart-token` gesetzt, Item drin; `ChangeQuantity {orderItemId, quantity: 5}` → neue Menge; `GetCurrentCartQuery` → Totals konsistent; `RemoveFromCart {orderItemId}` → Item weg; Cookie manuell auf ungültigen Wert → `GetCurrentCartQuery` liefert leer und räumt Cookie.
+6. `pnpm test`, `pnpm lint`, `pnpm test:types` — grün.
+7. Grep-Check: `method: ['"](POST|PATCH|PUT|DELETE)['"]` außerhalb `orchestr/wishlist/*`, `orchestr/cart/*` und der entsprechenden Client-Methoden → keine Treffer.
 
 ---
 
@@ -255,4 +277,4 @@ src/runtime/server/
 
 ## Out-of-Scope
 
-Cart, Checkout, Orders, Customer-Auth/Account, Addresses, Payments, Shipping, Taxon-Tree/Menu-Navigation, CMS-Blocks/Collections/Media/Templates, Geography, Contact, Multi-Channel-Switching via Config.
+Checkout (Addressing, Shipping-/Payment-Method-Selection, Complete), Completed Orders, Customer-Auth/Account, Addresses, Payments (PSP), Shipping-Methods, Taxon-Tree/Menu-Navigation, CMS-Blocks/Collections/Media/Templates, Geography, Contact, Multi-Channel-Switching via Config.
