@@ -7,7 +7,16 @@ import { name, version } from '../package.json';
 /**
  * The options the module adds to the nuxt.config.ts.
  */
-export interface ModuleOptions {}
+export interface ModuleOptions {
+  /** Sylius Shop API base URL. Example: "http://localhost/api/v2/shop" */
+  apiURL: string;
+  /** Fallback Accept-Language header. Default: "en_US" */
+  defaultLocale?: string;
+  /** LiipImagine filter for image URLs. Default: "sylius_large" */
+  imageFilter?: string;
+  /** Pagination default for list queries. Default: 20 */
+  itemsPerPage?: number;
+}
 
 /**
  * The config the module adds to nuxt.runtimeConfig.public['my-laioutr-app']
@@ -26,7 +35,12 @@ export default defineNuxtModule<ModuleOptions>({
     configKey: name, // configKey must match package name
   },
   // Default configuration options of the Nuxt module
-  defaults: {},
+  defaults: {
+    apiURL: 'http://localhost/api/v2/shop',
+    defaultLocale: 'en_US',
+    imageFilter: 'sylius_large',
+    itemsPerPage: 20,
+  } as ModuleOptions,
   async setup(_options, nuxt) {
     const { resolve } = createResolver(import.meta.url);
     const resolveRuntimeModule = (path: string) => resolve('./runtime', path);
