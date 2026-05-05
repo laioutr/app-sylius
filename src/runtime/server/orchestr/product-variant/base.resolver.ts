@@ -27,10 +27,10 @@ export default defineSyliusComponentResolver({
       availability: { enabled: false },
     },
   },
-  resolve: async ({ entityIds, context, clientEnv, $entity }) => {
+  resolve: async ({ entityIds, context, clientEnv, passthrough, $entity }) => {
     const { syliusClient } = context;
     const variants = await syliusClient.getVariantsByCodes(entityIds.map(String));
-    const optionResolver = createOptionResolver(syliusClient);
+    const optionResolver = createOptionResolver(syliusClient, passthrough);
     const { currency } = clientEnv;
 
     const entities = await Promise.all(
