@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-empty-object-type */
 import { createResolver, defineNuxtModule, installModule } from '@nuxt/kit';
 import { defu } from 'defu';
 import { registerLaioutrApp } from '@laioutr-core/kit';
@@ -17,16 +16,6 @@ export interface ModuleOptions {
   /** Pagination default for list queries. Default: 20 */
   itemsPerPage?: number;
 }
-
-/**
- * The config the module adds to nuxt.runtimeConfig.public['@laioutr-app/sylius']
- */
-export interface RuntimeConfigModulePublic extends ModuleOptions {}
-
-/**
- * The config the module adds to nuxt.runtimeConfig['@laioutr-app/sylius']
- */
-export interface RuntimeConfigModulePrivate extends ModuleOptions {}
 
 export default defineNuxtModule<ModuleOptions>({
   meta: {
