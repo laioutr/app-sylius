@@ -8,11 +8,14 @@ export type ProductImage = components['schemas']['ProductImage.jsonld-sylius.sho
 export type ProductOption = components['schemas']['ProductOption.jsonld'];
 export type ProductOptionValue = components['schemas']['ProductOptionValue.jsonld'];
 export type Order = components['schemas']['Order.jsonld-sylius.shop.cart.show'];
+export type Taxon = components['schemas']['Taxon.jsonld-sylius.shop.taxon.show'];
 
 export interface SyliusListParams {
   page?: number;
   itemsPerPage?: number;
   sort?: { field: string; dir: 'asc' | 'desc' };
+  /** Filter products to a single taxon by Sylius taxon code. */
+  taxon?: string;
 }
 
 export interface SyliusClientOptions {
@@ -60,6 +63,7 @@ export function createSyliusClient(opts: SyliusClientOptions) {
             page: params?.page ?? 1,
             itemsPerPage: params?.itemsPerPage ?? itemsPerPage,
             ...(imageFilter ? { imageFilter } : {}),
+            ...(params?.taxon ? { taxon: params.taxon } : {}),
             ...(buildSortQuery(params?.sort) as Record<string, 'asc' | 'desc'>),
           },
         },
@@ -140,6 +144,24 @@ export function createSyliusClient(opts: SyliusClientOptions) {
       });
       if (!data) throw new Error(`getProductOptionValues failed: ${response.status}`);
       return unwrapHydraCollection<ProductOptionValue>(data);
+    },
+
+    async getTaxonBySlug(slug: string): Promise<Taxon | null> {
+      const { data, response } = await client.GET('/api/v2/shop/taxons-by-slug/{slug}', {
+        params: { path: { slug } },
+      });
+      if (response.status === 404) return null;
+      if (!data) throw new Error(`getTaxonBySlug(${slug}) failed: ${response.status}`);
+      return data as Taxon;
+    },
+
+    async getTaxonByCode(code: string): Promise<Taxon | null> {
+      const { data, response } = await client.GET('/api/v2/shop/taxons/{code}', {
+        params: { path: { code } },
+      });
+      if (response.status === 404) return null;
+      if (!data) throw new Error(`getTaxonByCode(${code}) failed: ${response.status}`);
+      return data as Taxon;
     },
 
     async createCart(input?: { localeCode?: string }): Promise<Order> {
