@@ -1,21 +1,16 @@
 import { ProductsByCategorySlugQuery } from '@laioutr-core/canonical-types/ecommerce';
 import { defineSyliusQuery } from '../../middleware/defineSylius';
 
-const SORT_MAP: Record<string, { field: string; dir: 'asc' | 'desc' }> = {
-  'name:asc': { field: 'translation.name', dir: 'asc' },
-  'name:desc': { field: 'translation.name', dir: 'desc' },
-  'price:asc': { field: 'price', dir: 'asc' },
-  'price:desc': { field: 'price', dir: 'desc' },
-};
+const SORTINGS = {
+  'name:asc': { field: 'translation.name', dir: 'asc', label: 'Name A-Z' },
+  'name:desc': { field: 'translation.name', dir: 'desc', label: 'Name Z-A' },
+  'price:asc': { field: 'price', dir: 'asc', label: 'Price low to high' },
+  'price:desc': { field: 'price', dir: 'desc', label: 'Price high to low' },
+} as const satisfies Record<string, { field: string; dir: 'asc' | 'desc'; label: string }>;
 
-const AVAILABLE_SORTINGS = [
-  { key: 'name:asc', label: 'Name A-Z' },
-  { key: 'name:desc', label: 'Name Z-A' },
-  { key: 'price:asc', label: 'Price low to high' },
-  { key: 'price:desc', label: 'Price high to low' },
-];
+const AVAILABLE_SORTINGS = Object.entries(SORTINGS).map(([key, v]) => ({ key, label: v.label }));
 
-const DEFAULT_SORT_ID = 'name:asc';
+const DEFAULT_SORT_KEY = 'name:asc';
 
 export default defineSyliusQuery(
   ProductsByCategorySlugQuery,
@@ -30,26 +25,26 @@ export default defineSyliusQuery(
         total: 0,
         availableSortings: AVAILABLE_SORTINGS,
         availableFilters: [],
-        sorting: sorting ?? DEFAULT_SORT_ID,
+        sorting: sorting ?? DEFAULT_SORT_KEY,
       };
     }
 
-    const sortId = sorting && SORT_MAP[sorting] ? sorting : DEFAULT_SORT_ID;
-    const sort = SORT_MAP[sortId];
+    const sortKey = sorting && sorting in SORTINGS ? (sorting as keyof typeof SORTINGS) : DEFAULT_SORT_KEY;
+    const { field, dir } = SORTINGS[sortKey];
 
     const collection = await syliusClient.getProducts({
       page: pagination.page,
       itemsPerPage: pagination.limit,
       taxon: code,
-      sort,
+      sort: { field, dir },
     });
 
     return {
-      ids: collection.items.map((p) => p.code ?? '').filter(Boolean),
+      ids: collection.items.flatMap((p) => (p.code ? [p.code] : [])),
       total: collection.total,
       availableSortings: AVAILABLE_SORTINGS,
       availableFilters: [],
-      sorting: sortId,
+      sorting: sortKey,
     };
   }
 );
