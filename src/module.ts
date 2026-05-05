@@ -19,12 +19,12 @@ export interface ModuleOptions {
 }
 
 /**
- * The config the module adds to nuxt.runtimeConfig.public['my-laioutr-app']
+ * The config the module adds to nuxt.runtimeConfig.public['@laioutr-app/sylius']
  */
-export interface RuntimeConfigModulePublic {}
+export interface RuntimeConfigModulePublic extends ModuleOptions {}
 
 /**
- * The config the module adds to nuxt.runtimeConfig['my-laioutr-app']
+ * The config the module adds to nuxt.runtimeConfig['@laioutr-app/sylius']
  */
 export interface RuntimeConfigModulePrivate extends ModuleOptions {}
 
