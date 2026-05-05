@@ -1,4 +1,5 @@
 import { CategoryBase } from '@laioutr-core/canonical-types/entity/category';
+import { taxonCodeFromEntityId, taxonEntityId } from '../../mappers/taxon';
 import { defineSyliusComponentResolver } from '../../middleware/defineSylius';
 
 export default defineSyliusComponentResolver({
@@ -10,20 +11,17 @@ export default defineSyliusComponentResolver({
     const { syliusClient } = context;
 
     const taxons = await Promise.all(
-      entityIds.map((id) => {
-        const code = String(id).replace(/^taxon:/, '');
-        return syliusClient.getTaxonByCode(code);
-      })
+      entityIds.map((id) => syliusClient.getTaxonByCode(taxonCodeFromEntityId(id)))
     );
 
     const entities = taxons
       .filter((t): t is NonNullable<typeof t> => t !== null)
       .map((t) =>
         $entity({
-          id: `taxon:${(t as { code?: string }).code ?? ''}`,
+          id: taxonEntityId(t.code ?? ''),
           base: () => ({
-            slug: (t as { slug?: string }).slug ?? '',
-            title: (t as { name?: string }).name ?? '',
+            slug: t.slug ?? '',
+            title: t.name ?? '',
           }),
         })
       );

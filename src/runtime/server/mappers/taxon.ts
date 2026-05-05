@@ -8,6 +8,13 @@ export function taxonEntityId(code: string): string {
   return `${TAXON_ID_PREFIX}${code}`;
 }
 
+/** Strip the canonical `taxon:` prefix from an entity ID, returning the bare Sylius code. */
+export function taxonCodeFromEntityId(id: string | number): string {
+  return String(id).startsWith(TAXON_ID_PREFIX)
+    ? String(id).slice(TAXON_ID_PREFIX.length)
+    : String(id);
+}
+
 /**
  * Resolve a Sylius taxon code from an IRI like `/api/v2/shop/taxons/MENU_CATEGORY`.
  * Returns null when the IRI does not match the expected shape.
