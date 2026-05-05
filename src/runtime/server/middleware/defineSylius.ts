@@ -14,6 +14,7 @@ export const defineSylius = defineOrchestr
       apiURL: config.apiURL,
       locale: clientEnv?.locale ?? config.defaultLocale ?? 'en_US',
       itemsPerPage: config.itemsPerPage,
+      imageFilter: config.imageFilter as never,
     });
 
     return { context: { syliusClient } };

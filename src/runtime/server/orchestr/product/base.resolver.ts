@@ -1,5 +1,4 @@
 import { Money } from '@screeny05/ts-money';
-import { useRuntimeConfig } from '#imports';
 import {
   ProductBase,
   ProductDescription,
@@ -9,9 +8,8 @@ import {
   ProductPrices,
   ProductSeo,
 } from '@laioutr-core/canonical-types/entity/product';
-import { deriveApiOrigin, mapSyliusImage } from '../../mappers/media';
+import { mapSyliusImage } from '../../mappers/media';
 import { defineSyliusComponentResolver } from '../../middleware/defineSylius';
-import { getMinMaxPrices } from '../../orchestr-helper/products';
 
 export default defineSyliusComponentResolver({
   entityType: 'Product',
@@ -20,19 +18,22 @@ export default defineSyliusComponentResolver({
   cache: { ttl: '1 day', components: { prices: { ttl: '15 minutes' } } },
   resolve: async ({ entityIds, context, clientEnv, $entity }) => {
     const { syliusClient } = context;
-    const { imageFilter = 'sylius_large' } = useRuntimeConfig()['@laioutr-app/sylius'];
-    const apiOrigin = deriveApiOrigin(syliusClient.apiURL);
 
     const products = await Promise.all(
       entityIds.map((code) => syliusClient.getProductByCode(String(code)))
     );
 
     const entities = products.map((p) => {
-      const variants = ((p as any).variants ?? []) as { price?: number; originalPrice?: number }[];
-      const prices = getMinMaxPrices(variants);
       const { currency } = clientEnv;
       const images = ((p as any).images ?? []) as { id: number; path: string; type: string | null }[];
-      const cover = images[0] ? mapSyliusImage(images[0], { apiOrigin, imageFilter }) : undefined;
+      const cover = images[0] ? mapSyliusImage(images[0]) : undefined;
+      const variants = ((p as any).variants ?? []) as string[];
+      const defaultVariant = ((p as any).defaultVariantData ?? {}) as {
+        price?: number;
+        originalPrice?: number;
+      };
+      const price = defaultVariant.price ?? 0;
+      const originalPrice = defaultVariant.originalPrice ?? price;
 
       return $entity({
         id: (p as any).code!,
@@ -45,15 +46,15 @@ export default defineSyliusComponentResolver({
           shortDescription: (p as any).shortDescription ?? undefined,
         }),
         media: () => ({
-          images: images.map((img) => mapSyliusImage(img, { apiOrigin, imageFilter })),
-          media: images.map((img) => mapSyliusImage(img, { apiOrigin, imageFilter })),
+          images: images.map((img) => mapSyliusImage(img)),
+          media: images.map((img) => mapSyliusImage(img)),
         }),
         prices: () => ({
-          price: Money.fromInteger(prices.minPrice, currency),
+          price: Money.fromInteger(price, currency),
           strikethroughPrice:
-            prices.minOriginal > prices.minPrice ? Money.fromInteger(prices.minOriginal, currency) : undefined,
-          isOnSale: prices.minOriginal > prices.minPrice,
-          isStartingFrom: prices.minPrice !== prices.maxPrice,
+            originalPrice > price ? Money.fromInteger(originalPrice, currency) : undefined,
+          isOnSale: originalPrice > price,
+          isStartingFrom: variants.length > 1,
         }),
         seo: () => ({
           title: (p as any).metaKeywords ?? (p as any).name ?? '',

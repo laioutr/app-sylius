@@ -19,7 +19,17 @@ export interface SyliusClientOptions {
   apiURL: string;
   locale: string;
   itemsPerPage?: number;
+  /**
+   * LiipImagine filter Sylius applies server-side before returning image URLs.
+   * Sent on every product/variant fetch so `image.path` comes back as a
+   * ready-to-use absolute URL.
+   */
+  imageFilter?: SyliusImageFilter;
 }
+
+type SyliusImageFilter = NonNullable<
+  paths['/api/v2/shop/products']['get']['parameters']['query']
+>['imageFilter'];
 
 const JSON_LD = 'application/ld+json';
 const MERGE_PATCH = 'application/merge-patch+json';
@@ -32,7 +42,7 @@ function buildSortQuery(
 }
 
 export function createSyliusClient(opts: SyliusClientOptions) {
-  const { apiURL, locale, itemsPerPage = 20 } = opts;
+  const { apiURL, locale, itemsPerPage = 20, imageFilter } = opts;
 
   const client = createClient<paths>({
     baseUrl: new URL(apiURL).origin,
@@ -49,6 +59,7 @@ export function createSyliusClient(opts: SyliusClientOptions) {
           query: {
             page: params?.page ?? 1,
             itemsPerPage: params?.itemsPerPage ?? itemsPerPage,
+            ...(imageFilter ? { imageFilter } : {}),
             ...(buildSortQuery(params?.sort) as Record<string, 'asc' | 'desc'>),
           },
         },
@@ -59,7 +70,7 @@ export function createSyliusClient(opts: SyliusClientOptions) {
 
     async getProductByCode(code: string): Promise<Product> {
       const { data, response } = await client.GET('/api/v2/shop/products/{code}', {
-        params: { path: { code } },
+        params: { path: { code }, query: imageFilter ? { imageFilter } : undefined },
       });
       if (!data) throw new Error(`getProductByCode(${code}) failed: ${response.status}`);
       return data as Product;
@@ -67,7 +78,7 @@ export function createSyliusClient(opts: SyliusClientOptions) {
 
     async getProductBySlug(slug: string): Promise<Product> {
       const { data, response } = await client.GET('/api/v2/shop/products-by-slug/{slug}', {
-        params: { path: { slug } },
+        params: { path: { slug }, query: imageFilter ? { imageFilter } : undefined },
       });
       if (!data) throw new Error(`getProductBySlug(${slug}) failed: ${response.status}`);
       return data as Product;
