@@ -7,7 +7,7 @@ export interface VariantAvailabilityInput {
 export function computeAvailability(v: VariantAvailabilityInput) {
   return {
     status: v.inStock ? ('inStock' as const) : ('outOfStock' as const),
-    quantity: 0, // Sylius shop does not expose stock count
+    quantity: 100, // Sylius shop does not expose stock count
   };
 }
 

@@ -1,6 +1,6 @@
+import { Money } from '@screeny05/ts-money';
 import { CartItemBase, CartItemCost } from '@laioutr-core/canonical-types/entity/cart-item';
 import { defineSyliusComponentResolver } from '../../middleware/defineSylius';
-import { centsToMoney } from '../../orchestr-helper/products';
 
 interface CartItemRef {
   cartToken: string;
@@ -35,7 +35,7 @@ export default defineSyliusComponentResolver({
       if (!cart) return [];
       const item = (cart.items ?? []).find((it: any) => String(it.id) === ref.orderItemId);
       if (!item) return [];
-      const currency = cart.currencyCode ?? 'USD';
+      const currency = cart.currencyCode as string;
       const id = `${ref.cartToken}::${ref.orderItemId}`;
 
       return [
@@ -49,9 +49,9 @@ export default defineSyliusComponentResolver({
             code: item.variant ?? undefined, // variant IRI as code; refine post-MVP
           }),
           cost: () => ({
-            single: centsToMoney(item.unitPrice ?? 0, currency),
-            subtotal: centsToMoney(item.subtotal ?? item.total ?? 0, currency),
-            total: centsToMoney(item.total ?? 0, currency),
+            single: Money.fromInteger(item.unitPrice ?? 0, currency),
+            subtotal: Money.fromInteger(item.subtotal ?? item.total ?? 0, currency),
+            total: Money.fromInteger(item.total ?? 0, currency),
           }),
         }),
       ];

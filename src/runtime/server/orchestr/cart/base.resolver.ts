@@ -1,6 +1,6 @@
+import { Money } from '@screeny05/ts-money';
 import { CartBase, CartCost } from '@laioutr-core/canonical-types/entity/cart';
 import { defineSyliusComponentResolver } from '../../middleware/defineSylius';
-import { centsToMoney } from '../../orchestr-helper/products';
 
 export default defineSyliusComponentResolver({
   entityType: 'Cart',
@@ -17,7 +17,7 @@ export default defineSyliusComponentResolver({
 
     const entities = carts.flatMap(({ tokenValue, cart }) => {
       if (!cart) return [];
-      const currency = (cart as any).currencyCode ?? 'USD';
+      const currency = (cart as any).currencyCode as string;
       const items = ((cart as any).items ?? []) as { quantity: number }[];
       return [
         $entity({
@@ -26,14 +26,14 @@ export default defineSyliusComponentResolver({
             totalQuantity: items.reduce((sum, it) => sum + (it.quantity ?? 0), 0),
           }),
           cost: () => ({
-            subtotal: centsToMoney((cart as any).itemsTotal ?? 0, currency),
+            subtotal: Money.fromInteger((cart as any).itemsTotal ?? 0, currency),
             subtotalIsEstimated: false,
-            total: centsToMoney((cart as any).total ?? 0, currency),
+            total: Money.fromInteger((cart as any).total ?? 0, currency),
             totalIsEstimated: false,
             tax:
               (cart as any).taxTotal > 0
                 ? {
-                    total: centsToMoney((cart as any).taxTotal, currency),
+                    total: Money.fromInteger((cart as any).taxTotal, currency),
                     isEstimated: false,
                     isIncluded: ((cart as any).taxIncludedTotal ?? 0) > 0,
                   }

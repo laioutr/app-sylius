@@ -1,3 +1,4 @@
+import { Money } from '@screeny05/ts-money';
 import { useRuntimeConfig } from '#imports';
 import {
   ProductBase,
@@ -10,7 +11,7 @@ import {
 } from '@laioutr-core/canonical-types/entity/product';
 import { deriveApiOrigin, mapSyliusImage } from '../../mappers/media';
 import { defineSyliusComponentResolver } from '../../middleware/defineSylius';
-import { centsToMoney, getMinMaxPrices } from '../../orchestr-helper/products';
+import { getMinMaxPrices } from '../../orchestr-helper/products';
 
 export default defineSyliusComponentResolver({
   entityType: 'Product',
@@ -29,7 +30,7 @@ export default defineSyliusComponentResolver({
     const entities = products.map((p) => {
       const variants = ((p as any).variants ?? []) as { price?: number; originalPrice?: number }[];
       const prices = getMinMaxPrices(variants);
-      const currency = clientEnv.currency ?? 'USD';
+      const { currency } = clientEnv;
       const images = ((p as any).images ?? []) as { id: number; path: string; type: string | null }[];
       const cover = images[0] ? mapSyliusImage(images[0], { apiOrigin, imageFilter }) : undefined;
 
@@ -48,9 +49,9 @@ export default defineSyliusComponentResolver({
           media: images.map((img) => mapSyliusImage(img, { apiOrigin, imageFilter })),
         }),
         prices: () => ({
-          price: centsToMoney(prices.minPrice, currency),
+          price: Money.fromInteger(prices.minPrice, currency),
           strikethroughPrice:
-            prices.minOriginal > prices.minPrice ? centsToMoney(prices.minOriginal, currency) : undefined,
+            prices.minOriginal > prices.minPrice ? Money.fromInteger(prices.minOriginal, currency) : undefined,
           isOnSale: prices.minOriginal > prices.minPrice,
           isStartingFrom: prices.minPrice !== prices.maxPrice,
         }),

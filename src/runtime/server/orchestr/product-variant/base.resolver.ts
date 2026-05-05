@@ -1,3 +1,4 @@
+import { Money } from '@screeny05/ts-money';
 import {
   ProductVariantAvailability,
   ProductVariantBase,
@@ -8,7 +9,6 @@ import {
 import { defineSyliusComponentResolver } from '../../middleware/defineSylius';
 import { createOptionResolver } from '../../orchestr-helper/option-resolver';
 import { computeAvailability, mapVariantOptions } from '../../orchestr-helper/product-variants';
-import { centsToMoney } from '../../orchestr-helper/products';
 
 export default defineSyliusComponentResolver({
   entityType: 'ProductVariant',
@@ -31,7 +31,7 @@ export default defineSyliusComponentResolver({
     const { syliusClient } = context;
     const variants = await syliusClient.getVariantsByCodes(entityIds.map(String));
     const optionResolver = createOptionResolver(syliusClient);
-    const currency = clientEnv.currency ?? 'USD';
+    const { currency } = clientEnv;
 
     const entities = await Promise.all(
       variants.map(async (v) => {
@@ -49,11 +49,11 @@ export default defineSyliusComponentResolver({
             const original = (v as any).originalPrice ?? price;
             const lowestPrior = (v as any).lowestPriceBeforeDiscount;
             return {
-              price: centsToMoney(price, currency),
-              strikethroughPrice: original > price ? centsToMoney(original, currency) : undefined,
+              price: Money.fromInteger(price, currency),
+              strikethroughPrice: original > price ? Money.fromInteger(original, currency) : undefined,
               isOnSale: original > price,
               lowestPriorPrice:
-                typeof lowestPrior === 'number' ? centsToMoney(lowestPrior, currency) : undefined,
+                typeof lowestPrior === 'number' ? Money.fromInteger(lowestPrior, currency) : undefined,
             };
           },
           options: () => ({ selected }),

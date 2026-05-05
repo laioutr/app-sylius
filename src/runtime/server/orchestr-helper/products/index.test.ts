@@ -1,13 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { centsToMoney, getMinMaxPrices } from './index';
-
-describe('centsToMoney', () => {
-  it('converts cents to Money', () => {
-    const m = centsToMoney(1234, 'USD');
-    expect(m.amount).toBe(1234);
-    expect(m.currency).toBe('USD');
-  });
-});
+import { getMinMaxPrices } from './index';
 
 describe('getMinMaxPrices', () => {
   it('returns min and max prices over variants', () => {

@@ -1,9 +1,3 @@
-import { Money } from '@screeny05/ts-money';
-
-export function centsToMoney(cents: number, currency: string) {
-  return Money.fromInteger(cents, currency);
-}
-
 export interface VariantPriceInput {
   price?: number | null;
   originalPrice?: number | null;
