@@ -39,6 +39,7 @@
   "dependencies": {
     "@nuxt/kit": "3.16.2",
     "@screeny05/ts-money": "^1.0.5",
+    "defu": "^6.1.4",
     "zod": "3.25.61"
   },
   "devDependencies": {
@@ -67,7 +68,8 @@
   "peerDependencies": {
     "@laioutr-core/canonical-types": ">=0.22.13",
     "@laioutr-core/core-types": ">=0.28.8",
-    "@laioutr-core/frontend-core": ">=0.28.8"
+    "@laioutr-core/frontend-core": ">=0.28.8",
+    "@laioutr-core/kit": ">=0.28.8"
   },
   "engines": {
     "node": ">=22.12.0",
