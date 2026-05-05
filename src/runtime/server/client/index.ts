@@ -1,5 +1,6 @@
+import createClient from 'openapi-fetch';
 import { type HydraCollection, unwrapHydraCollection } from './hydra';
-import type { components } from './sylius-types';
+import type { components, paths } from './sylius-types';
 
 export type Product = components['schemas']['Product.jsonld-sylius.shop.product.show'];
 export type ProductVariant = components['schemas']['ProductVariant.jsonld-sylius.shop.product_variant.show'];
@@ -12,7 +13,6 @@ export interface SyliusListParams {
   page?: number;
   itemsPerPage?: number;
   sort?: { field: string; dir: 'asc' | 'desc' };
-  filter?: Record<string, unknown>;
 }
 
 export interface SyliusClientOptions {
@@ -24,109 +24,142 @@ export interface SyliusClientOptions {
 const JSON_LD = 'application/ld+json';
 const MERGE_PATCH = 'application/merge-patch+json';
 
-function buildListQuery(params: SyliusListParams | undefined, defaultItemsPerPage: number) {
-  const q: Record<string, string | number> = {
-    page: params?.page ?? 1,
-    itemsPerPage: params?.itemsPerPage ?? defaultItemsPerPage,
-  };
-  if (params?.sort) q[`order[${params.sort.field}]`] = params.sort.dir;
-  if (params?.filter) {
-    for (const [k, v] of Object.entries(params.filter)) {
-      if (v !== undefined && v !== null) q[k] = String(v);
-    }
-  }
-  return q;
+function buildSortQuery(
+  sort: SyliusListParams['sort'] | undefined
+): Record<string, 'asc' | 'desc'> | undefined {
+  if (!sort) return undefined;
+  return { [`order[${sort.field}]`]: sort.dir };
 }
 
 export function createSyliusClient(opts: SyliusClientOptions) {
   const { apiURL, locale, itemsPerPage = 20 } = opts;
-  const headers = { Accept: JSON_LD, 'Accept-Language': locale };
 
-  const get = <T>(path: string, query?: Record<string, unknown>) =>
-    $fetch<T>(`${apiURL}${path}`, { headers, query });
+  const client = createClient<paths>({
+    baseUrl: new URL(apiURL).origin,
+    headers: { Accept: JSON_LD, 'Accept-Language': locale },
+  });
 
   return {
     apiURL,
     locale,
 
     async getProducts(params?: SyliusListParams): Promise<HydraCollection<Product>> {
-      const data = await get<unknown>('/products', buildListQuery(params, itemsPerPage));
+      const { data, response } = await client.GET('/api/v2/shop/products', {
+        params: {
+          query: {
+            page: params?.page ?? 1,
+            itemsPerPage: params?.itemsPerPage ?? itemsPerPage,
+            ...(buildSortQuery(params?.sort) as Record<string, 'asc' | 'desc'>),
+          },
+        },
+      });
+      if (!data) throw new Error(`getProducts failed: ${response.status}`);
       return unwrapHydraCollection<Product>(data);
     },
 
     async getProductByCode(code: string): Promise<Product> {
-      return get<Product>(`/products/${encodeURIComponent(code)}`);
+      const { data, response } = await client.GET('/api/v2/shop/products/{code}', {
+        params: { path: { code } },
+      });
+      if (!data) throw new Error(`getProductByCode(${code}) failed: ${response.status}`);
+      return data as Product;
     },
 
     async getProductBySlug(slug: string): Promise<Product> {
-      return get<Product>(`/products-by-slug/${encodeURIComponent(slug)}`);
+      const { data, response } = await client.GET('/api/v2/shop/products-by-slug/{slug}', {
+        params: { path: { slug } },
+      });
+      if (!data) throw new Error(`getProductBySlug(${slug}) failed: ${response.status}`);
+      return data as Product;
     },
 
     async getProductImages(productCode: string): Promise<HydraCollection<ProductImage>> {
-      const data = await get<unknown>(`/products/${encodeURIComponent(productCode)}/images`);
+      const { data, response } = await client.GET('/api/v2/shop/products/{code}/images', {
+        params: { path: { code: productCode } },
+      });
+      if (!data) throw new Error(`getProductImages(${productCode}) failed: ${response.status}`);
       return unwrapHydraCollection<ProductImage>(data);
     },
 
     async getVariantsByProduct(productIri: string): Promise<HydraCollection<ProductVariant>> {
-      const data = await get<unknown>('/product-variants', { product: productIri });
+      const { data, response } = await client.GET('/api/v2/shop/product-variants', {
+        params: { query: { product: productIri } },
+      });
+      if (!data) throw new Error(`getVariantsByProduct failed: ${response.status}`);
       return unwrapHydraCollection<ProductVariant>(data);
     },
 
     async getVariantsByProducts(productIris: string[]): Promise<ProductVariant[]> {
       if (productIris.length === 0) return [];
-      const data = await get<unknown>('/product-variants', {
-        'product[]': productIris,
-        itemsPerPage: 100,
+      const { data, response } = await client.GET('/api/v2/shop/product-variants', {
+        params: { query: { 'product[]': productIris, itemsPerPage: 100 } },
       });
+      if (!data) throw new Error(`getVariantsByProducts failed: ${response.status}`);
       return unwrapHydraCollection<ProductVariant>(data).items;
     },
 
     async getVariantByCode(code: string): Promise<ProductVariant> {
-      return get<ProductVariant>(`/product-variants/${encodeURIComponent(code)}`);
+      const { data, response } = await client.GET('/api/v2/shop/product-variants/{code}', {
+        params: { path: { code } },
+      });
+      if (!data) throw new Error(`getVariantByCode(${code}) failed: ${response.status}`);
+      return data as ProductVariant;
     },
 
     async getVariantsByCodes(codes: string[]): Promise<ProductVariant[]> {
       if (codes.length === 0) return [];
-      const data = await get<unknown>('/product-variants', { 'code[]': codes, itemsPerPage: codes.length });
+      const { data, response } = await client.GET('/api/v2/shop/product-variants', {
+        params: { query: { 'code[]': codes, itemsPerPage: codes.length } },
+      });
+      if (!data) throw new Error(`getVariantsByCodes failed: ${response.status}`);
       return unwrapHydraCollection<ProductVariant>(data).items;
     },
 
     async getProductOptions(): Promise<HydraCollection<ProductOption>> {
-      const data = await get<unknown>('/product-options', { itemsPerPage: 100 });
+      const { data, response } = await client.GET('/api/v2/shop/product-options', {
+        params: { query: { itemsPerPage: 100 } },
+      });
+      if (!data) throw new Error(`getProductOptions failed: ${response.status}`);
       return unwrapHydraCollection<ProductOption>(data);
     },
 
     async getProductOptionValues(): Promise<HydraCollection<ProductOptionValue>> {
-      const data = await get<unknown>('/product-option-values', { itemsPerPage: 200 });
+      const { data, response } = await client.GET('/api/v2/shop/product-option-values', {
+        params: { query: { itemsPerPage: 200 } },
+      });
+      if (!data) throw new Error(`getProductOptionValues failed: ${response.status}`);
       return unwrapHydraCollection<ProductOptionValue>(data);
     },
 
     async createCart(input?: { localeCode?: string }): Promise<Order> {
-      return $fetch<Order>(`${apiURL}/orders`, {
-        method: 'POST',
-        headers: { ...headers, 'Content-Type': JSON_LD },
-        body: input?.localeCode ? { localeCode: input.localeCode } : {},
+      const { data, response } = await client.POST('/api/v2/shop/orders', {
+        headers: { 'Content-Type': JSON_LD },
+        body: (input?.localeCode ? { localeCode: input.localeCode } : {}) as never,
       });
+      if (!data) throw new Error(`createCart failed: ${response.status}`);
+      return data as Order;
     },
 
     async getCart(tokenValue: string): Promise<Order | null> {
-      try {
-        return await get<Order>(`/orders/${encodeURIComponent(tokenValue)}`);
-      } catch (err) {
-        if ((err as { statusCode?: number }).statusCode === 404) return null;
-        throw err;
-      }
+      const { data, response } = await client.GET('/api/v2/shop/orders/{tokenValue}', {
+        params: { path: { tokenValue } },
+      });
+      if (response.status === 404) return null;
+      if (!data) throw new Error(`getCart failed: ${response.status}`);
+      return data as Order;
     },
 
     async addCartItem(
       tokenValue: string,
       body: { productVariant: string; quantity: number }
     ): Promise<Order> {
-      return $fetch<Order>(`${apiURL}/orders/${encodeURIComponent(tokenValue)}/items`, {
-        method: 'POST',
-        headers: { ...headers, 'Content-Type': JSON_LD },
-        body,
+      const { data, response } = await client.POST('/api/v2/shop/orders/{tokenValue}/items', {
+        params: { path: { tokenValue } },
+        headers: { 'Content-Type': JSON_LD },
+        body: body as never,
       });
+      if (!data) throw new Error(`addCartItem failed: ${response.status}`);
+      return data as Order;
     },
 
     async changeCartItemQuantity(
@@ -134,21 +167,26 @@ export function createSyliusClient(opts: SyliusClientOptions) {
       orderItemId: string | number,
       body: { quantity: number }
     ): Promise<Order> {
-      return $fetch<Order>(
-        `${apiURL}/orders/${encodeURIComponent(tokenValue)}/items/${orderItemId}`,
+      const { data, response } = await client.PATCH(
+        '/api/v2/shop/orders/{tokenValue}/items/{orderItemId}',
         {
-          method: 'PATCH',
-          headers: { ...headers, 'Content-Type': MERGE_PATCH },
-          body,
+          params: { path: { tokenValue, orderItemId: String(orderItemId) } },
+          headers: { 'Content-Type': MERGE_PATCH },
+          body: body as never,
         }
       );
+      if (!data) throw new Error(`changeCartItemQuantity failed: ${response.status}`);
+      return data as Order;
     },
 
     async removeCartItem(tokenValue: string, orderItemId: string | number): Promise<Order> {
-      return $fetch<Order>(
-        `${apiURL}/orders/${encodeURIComponent(tokenValue)}/items/${orderItemId}`,
-        { method: 'DELETE', headers }
+      const { data, response } = await client.DELETE(
+        '/api/v2/shop/orders/{tokenValue}/items/{orderItemId}',
+        { params: { path: { tokenValue, orderItemId: String(orderItemId) } } }
       );
+      if (response.status === 204) return {} as Order;
+      if (!data) throw new Error(`removeCartItem failed: ${response.status}`);
+      return data as Order;
     },
   };
 }
