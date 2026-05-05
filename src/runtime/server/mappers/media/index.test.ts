@@ -2,14 +2,19 @@ import { describe, expect, it } from 'vitest';
 import { mapSyliusImage } from './index';
 
 describe('mapSyliusImage', () => {
-  it('builds a MediaImage from path + filter + origin', () => {
+  it('builds a canonical MediaImage from path + filter + origin', () => {
     const result = mapSyliusImage(
       { id: 7, path: 'a/b/c.jpg', type: null },
       { apiOrigin: 'http://localhost', imageFilter: 'sylius_large' }
     );
     expect(result).toEqual({
       type: 'image',
-      src: 'http://localhost/media/cache/resolve/sylius_large/a/b/c.jpg',
+      sources: [
+        {
+          provider: 'sylius',
+          src: 'http://localhost/media/cache/resolve/sylius_large/a/b/c.jpg',
+        },
+      ],
       alt: '',
     });
   });

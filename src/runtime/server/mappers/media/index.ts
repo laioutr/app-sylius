@@ -1,3 +1,5 @@
+import type { MediaImage } from '@laioutr-core/core-types/common';
+
 export interface SyliusImageInput {
   id: number;
   path: string;
@@ -9,16 +11,15 @@ export interface MapSyliusImageOptions {
   imageFilter: string;
 }
 
-export interface MappedSyliusImage {
-  type: 'image';
-  src: string;
-  alt: string;
-}
-
-export function mapSyliusImage(image: SyliusImageInput, opts: MapSyliusImageOptions): MappedSyliusImage {
+export function mapSyliusImage(image: SyliusImageInput, opts: MapSyliusImageOptions): MediaImage {
   return {
     type: 'image',
-    src: `${opts.apiOrigin}/media/cache/resolve/${opts.imageFilter}/${image.path}`,
+    sources: [
+      {
+        provider: 'sylius',
+        src: `${opts.apiOrigin}/media/cache/resolve/${opts.imageFilter}/${image.path}`,
+      },
+    ],
     alt: image.type ?? '',
   };
 }
