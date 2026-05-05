@@ -4,10 +4,12 @@ Laioutr connector for the Sylius Shop API v2.
 
 ## MVP scope
 
-- **Read:** Product, ProductVariant (PLP, PDP, variant selection)
+- **Read:** Product, ProductVariant (PLP, PDP, variant selection), Category, MenuItem, BreadcrumbItem (taxon-derived navigation).
 - **Write:** Cart line-items only — Add / Update quantity / Remove. No checkout.
 
-Out of scope: customer auth, addresses, payments, shipping, taxons, CMS pages, wishlist, bundles, reviews, attributes, associations, promotions.
+Out of scope: customer auth, addresses, payments, shipping, CMS pages, wishlist, bundles, reviews, attributes, associations, promotions.
+
+`menu/by-alias` resolves the `alias` argument as a Sylius taxon code. There is no separate alias-to-code mapping — the frontend asks for a menu by passing the code of the desired root taxon (e.g. `MENU_CATEGORY`).
 
 ## Setup
 
