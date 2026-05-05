@@ -1,8 +1,8 @@
 {
-  "name": "my-laioutr-app",
+  "name": "@laioutr-app/sylius",
   "version": "1.0.0",
-  "description": "My new Laioutr App",
-  "repository": "your-org/my-laioutr-app",
+  "description": "Laioutr connector for Sylius Shop API v2",
+  "repository": "laioutr/app-sylius",
   "license": "MIT",
   "type": "module",
   "exports": {
@@ -38,6 +38,7 @@
   ],
   "dependencies": {
     "@nuxt/kit": "3.16.2",
+    "@screeny05/ts-money": "^1.0.5",
     "zod": "3.25.61"
   },
   "devDependencies": {
@@ -57,6 +58,7 @@
     "changelogen": "^0.6.2",
     "eslint": "^9.35.0",
     "nuxt": "3.16.2",
+    "openapi-typescript": "^7.0.0",
     "pinia": "3.0.2",
     "typescript": "5.9.2",
     "vitest": "3.1.1",
