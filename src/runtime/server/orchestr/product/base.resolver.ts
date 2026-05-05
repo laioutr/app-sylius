@@ -1,6 +1,7 @@
 import { Money } from '@screeny05/ts-money';
 import {
   ProductBase,
+  ProductDefaultVariant,
   ProductDescription,
   ProductFlags,
   ProductInfo,
@@ -14,7 +15,7 @@ import { defineSyliusComponentResolver } from '../../middleware/defineSylius';
 export default defineSyliusComponentResolver({
   entityType: 'Product',
   label: 'Sylius Product Resolver',
-  provides: [ProductBase, ProductInfo, ProductMedia, ProductPrices, ProductSeo, ProductDescription, ProductFlags],
+  provides: [ProductBase, ProductInfo, ProductMedia, ProductPrices, ProductSeo, ProductDescription, ProductFlags, ProductDefaultVariant],
   cache: { ttl: '1 day', components: { prices: { ttl: '15 minutes' } } },
   resolve: async ({ entityIds, context, clientEnv, $entity }) => {
     const { syliusClient } = context;
@@ -62,6 +63,15 @@ export default defineSyliusComponentResolver({
         }),
         description: () => ({ html: (p as any).description ?? '' }),
         flags: () => [],
+        defaultVariant: () => {
+          const iri = (p as any).defaultVariant as string | null | undefined;
+          const id = iri ? decodeURIComponent(iri.split('/').pop() ?? '') : undefined;
+          const dvData = ((p as any).defaultVariantData ?? {}) as { optionValues?: string[] };
+          const options = Array.isArray(dvData.optionValues)
+            ? dvData.optionValues.map((ov) => decodeURIComponent(ov.split('/').pop() ?? ''))
+            : undefined;
+          return { id, options };
+        },
       });
     });
 
