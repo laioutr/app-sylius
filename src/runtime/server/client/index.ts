@@ -91,5 +91,55 @@ export function createSyliusClient(opts: SyliusClientOptions) {
       const data = await get<unknown>('/product-option-values', { itemsPerPage: 200 });
       return unwrapHydraCollection<ProductOptionValue>(data);
     },
+
+    async createCart(input?: { localeCode?: string }): Promise<Order> {
+      return $fetch<Order>(`${apiURL}/orders`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': JSON_LD },
+        body: input?.localeCode ? { localeCode: input.localeCode } : {},
+      });
+    },
+
+    async getCart(tokenValue: string): Promise<Order | null> {
+      try {
+        return await get<Order>(`/orders/${encodeURIComponent(tokenValue)}`);
+      } catch (err) {
+        if ((err as { statusCode?: number }).statusCode === 404) return null;
+        throw err;
+      }
+    },
+
+    async addCartItem(
+      tokenValue: string,
+      body: { productVariant: string; quantity: number }
+    ): Promise<Order> {
+      return $fetch<Order>(`${apiURL}/orders/${encodeURIComponent(tokenValue)}/items`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': JSON_LD },
+        body,
+      });
+    },
+
+    async changeCartItemQuantity(
+      tokenValue: string,
+      orderItemId: string | number,
+      body: { quantity: number }
+    ): Promise<Order> {
+      return $fetch<Order>(
+        `${apiURL}/orders/${encodeURIComponent(tokenValue)}/items/${orderItemId}`,
+        {
+          method: 'PATCH',
+          headers: { ...headers, 'Content-Type': MERGE_PATCH },
+          body,
+        }
+      );
+    },
+
+    async removeCartItem(tokenValue: string, orderItemId: string | number): Promise<Order> {
+      return $fetch<Order>(
+        `${apiURL}/orders/${encodeURIComponent(tokenValue)}/items/${orderItemId}`,
+        { method: 'DELETE', headers }
+      );
+    },
   };
 }
