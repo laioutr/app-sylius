@@ -9,7 +9,7 @@ export type ProductOption = components['schemas']['ProductOption.jsonld'];
 export type ProductOptionValue = components['schemas']['ProductOptionValue.jsonld'];
 export type Order = components['schemas']['Order.jsonld-sylius.shop.cart.show'];
 export type Taxon = components['schemas']['Taxon.jsonld-sylius.shop.taxon.show'];
-export type TaxonBranch = components['schemas']['Taxon.jsonld-sylius.shop.taxon_tree.branch'];
+export type TaxonPathNode = components['schemas']['Taxon.jsonld-sylius.shop.taxon_tree.path'];
 
 export interface SyliusListParams {
   page?: number;
@@ -64,7 +64,13 @@ export function createSyliusClient(opts: SyliusClientOptions) {
             page: params?.page ?? 1,
             itemsPerPage: params?.itemsPerPage ?? itemsPerPage,
             ...(imageFilter ? { imageFilter } : {}),
-            ...(params?.taxon ? { taxon: params.taxon } : {}),
+            // Sylius's `taxon` filter expects an IRI, not a code, despite
+            // the openapi-typescript output typing it as plain `string`. The
+            // filter is recursive: filtering by a parent IRI returns products
+            // assigned to that taxon and any of its descendants.
+            ...(params?.taxon
+              ? { taxon: `/api/v2/shop/taxons/${encodeURIComponent(params.taxon)}` }
+              : {}),
             ...(buildSortQuery(params?.sort) as Record<string, 'asc' | 'desc'>),
           },
         },
@@ -166,17 +172,22 @@ export function createSyliusClient(opts: SyliusClientOptions) {
     },
 
     /**
-     * Fetches a taxon plus its `parent` IRI via `/taxon-tree/{code}/branch`. Use
-     * this (not `getTaxonByCode`) when you need to walk ancestor chains: the
-     * shop `/taxons/{code}` endpoint does not expose `parent`, only `children`.
+     * Fetches the full ancestor chain for a taxon as an array, root → leaf,
+     * excluding the storefront menu root (MENU_CATEGORY) by default. Sylius
+     * exposes this as `/taxon-tree/{code}/path` and the response is a hydra
+     * collection — the openapi-typescript output mistypes it as a single taxon.
+     * Use this for breadcrumb construction; one HTTP call gives you the whole
+     * chain instead of walking parents one at a time.
      */
-    async getTaxonBranch(code: string): Promise<TaxonBranch | null> {
-      const { data, response } = await client.GET('/api/v2/shop/taxon-tree/{code}/branch', {
-        params: { path: { code } },
+    async getTaxonPath(code: string): Promise<TaxonPathNode[]> {
+      const url = new URL(`taxon-tree/${encodeURIComponent(code)}/path`, apiURL.endsWith('/') ? apiURL : `${apiURL}/`).toString();
+      const res = await fetch(url, {
+        headers: { Accept: JSON_LD, 'Accept-Language': locale },
       });
-      if (response.status === 404) return null;
-      if (!data) throw new Error(`getTaxonBranch(${code}) failed: ${response.status}`);
-      return data as TaxonBranch;
+      if (res.status === 404) return [];
+      if (!res.ok) throw new Error(`getTaxonPath(${code}) failed: ${res.status}`);
+      const body = (await res.json()) as unknown;
+      return unwrapHydraCollection<TaxonPathNode>(body).items;
     },
 
     async createCart(input?: { localeCode?: string }): Promise<Order> {
