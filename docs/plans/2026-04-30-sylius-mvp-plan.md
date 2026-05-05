@@ -1826,16 +1826,26 @@ cd /Users/sl/src/app-sylius && pnpm dev
 
 ## Task 37: Grep guard for write-restriction invariant
 
+The Sylius client is built on `openapi-fetch`, which exposes write verbs as
+`client.POST(...)` / `client.PATCH(...)` / `client.PUT(...)` / `client.DELETE(...)`
+calls — not as `method: 'POST'` literals on a generic `$fetch` call. The guard
+is therefore keyed on the verb-method call shape and asserts that the only file
+which uses it is `src/runtime/server/client/index.ts`.
+
 **Step 1: Run guard**
 
 ```bash
 cd /Users/sl/src/app-sylius && grep -RIn --include='*.ts' \
-  -E "method:\s*['\"](POST|PATCH|PUT|DELETE)['\"]" \
+  -E "client\.(POST|PATCH|PUT|DELETE)\(" \
   src \
-  | grep -v 'src/runtime/server/client/index.ts' \
-  | grep -v 'src/runtime/server/orchestr/cart/.*\.action\.ts' || echo "GUARD: pass"
+  | grep -v 'src/runtime/server/client/index.ts' || echo "GUARD: pass"
 ```
 Expected: prints `GUARD: pass` (no offenders). If anything is printed, that file is violating the architecture rule and must be moved/fixed.
+
+The cart action handlers in `src/runtime/server/orchestr/cart/*.action.ts` no
+longer need an exception — they call wrapper methods like `addCartItem` /
+`changeCartItemQuantity` / `removeCartItem`, which in turn issue the typed
+write requests from inside the client.
 
 **Step 2: Commit if you needed any fixes** (if the guard already passed, no commit).
 

@@ -36,4 +36,11 @@ The output (`src/runtime/server/client/sylius-types.ts`) is committed.
 
 ## Architecture invariant
 
-Only the cart-write methods in `src/runtime/server/client/index.ts` and the action handlers in `src/runtime/server/orchestr/cart/*.action.ts` may issue non-GET HTTP requests. All other code is read-only. The grep guard at the end of the test plan enforces this.
+The only file that issues non-GET HTTP requests is `src/runtime/server/client/index.ts`. Every write goes through one of its five cart-write wrapper methods (`createCart`, `getCart` is GET, `addCartItem`, `changeCartItemQuantity`, `removeCartItem`). Everything else — orchestr handlers, mappers, helpers — is read-only.
+
+The client is built on `openapi-fetch`, so writes appear as `client.POST(...)` / `client.PATCH(...)` / `client.DELETE(...)` calls. A grep guard enforces that no other file uses these:
+
+```sh
+grep -RIn --include='*.ts' -E "client\.(POST|PATCH|PUT|DELETE)\(" src \
+  | grep -v 'src/runtime/server/client/index.ts' || echo "GUARD: pass"
+```
