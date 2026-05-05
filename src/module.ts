@@ -36,6 +36,14 @@ export default defineNuxtModule<ModuleOptions>({
 
     nuxt.options.build.transpile.push(resolve('./runtime'));
 
+    // Make app-assets publicly available (logo etc., served from /app-sylius/...)
+    nuxt.options.nitro ??= {};
+    nuxt.options.nitro.publicAssets ??= [];
+    nuxt.options.nitro.publicAssets.push({
+      dir: resolveRuntimeModule('./app/public'),
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+    });
+
     // Runtime configuration for this module
     // These two statements can be removed if you don't provide a runtime config
     nuxt.options.runtimeConfig[name] = defu(nuxt.options.runtimeConfig[name] as Parameters<typeof defu>[0], _options);

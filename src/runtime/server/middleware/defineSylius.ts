@@ -6,7 +6,7 @@ export const defineSylius = defineOrchestr
   .meta({
     app: name,
     label: 'Sylius',
-    logoUrl: '/@laioutr-app/sylius/sylius-logo.svg',
+    logoUrl: '/app-sylius/sylius-logo.svg',
   })
   .extendRequest(async ({ clientEnv }) => {
     const config = useRuntimeConfig()['@laioutr-app/sylius'];
