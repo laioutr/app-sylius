@@ -9,7 +9,7 @@ Laioutr connector for the Sylius Shop API v2.
 
 Out of scope: customer auth, addresses, payments, shipping, CMS pages, wishlist, bundles, reviews, attributes, associations, promotions.
 
-`menu/by-alias` resolves the `alias` argument as a Sylius taxon code. There is no separate alias-to-code mapping — the frontend asks for a menu by passing the code of the desired root taxon (e.g. `MENU_CATEGORY`).
+`menu/by-alias` resolves the `alias` argument as a Sylius taxon code. There is no separate alias-to-code mapping — the frontend asks for a menu by passing the code of the desired root taxon (e.g. `MENU_CATEGORY`). `MenuItem.parentId` is never emitted (the Sylius shop `taxon.show` schema does not expose `parent`); reconstruct the menu tree top-down from `childIds`.
 
 ## Setup
 

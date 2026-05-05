@@ -165,6 +165,11 @@ export function createSyliusClient(opts: SyliusClientOptions) {
       return data as Taxon;
     },
 
+    /**
+     * Fetches a taxon plus its `parent` IRI via `/taxon-tree/{code}/branch`. Use
+     * this (not `getTaxonByCode`) when you need to walk ancestor chains: the
+     * shop `/taxons/{code}` endpoint does not expose `parent`, only `children`.
+     */
     async getTaxonBranch(code: string): Promise<TaxonBranch | null> {
       const { data, response } = await client.GET('/api/v2/shop/taxon-tree/{code}/branch', {
         params: { path: { code } },

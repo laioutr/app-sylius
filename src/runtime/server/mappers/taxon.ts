@@ -27,19 +27,6 @@ export function codeFromTaxonIri(iri: string | null | undefined): string | null 
 }
 
 /**
- * Sort a list of taxons by Sylius `position` ascending. Stable: taxons with the
- * same position keep input order.
- */
-export function sortByPosition<T extends { position?: number | null }>(taxons: T[]): T[] {
-  return [...taxons].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
-}
-
-/** Filter out taxons explicitly disabled in Sylius. */
-export function filterEnabled<T extends { enabled?: boolean | null }>(taxons: T[]): T[] {
-  return taxons.filter((t) => t.enabled !== false);
-}
-
-/**
  * Build a canonical `LinkReference` to a Category for a given taxon. The frontend
  * resolves this to a route via its page-types `resolveFor: [{ referenceType: 'Category' }]`
  * mapping; the connector emits no URL strings.
