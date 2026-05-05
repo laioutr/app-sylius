@@ -26,6 +26,7 @@
     "dev": "npm run dev:prepare && nuxi dev playground",
     "dev:build": "nuxi build playground",
     "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxi prepare playground",
+    "gen:sylius": "mkdir -p src/runtime/server/client && curl -fsS -H 'Accept: application/vnd.openapi+json' http://localhost/api/v2/docs -o /tmp/sylius-openapi.json && openapi-typescript /tmp/sylius-openapi.json -o src/runtime/server/client/sylius-types.ts",
     "lint": "eslint .",
     "prepack": "nuxt-module-build build",
     "release": "npm run lint && npm run test && npm run prepack && changelogen --release && npm publish && git push --follow-tags",
