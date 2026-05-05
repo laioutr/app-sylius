@@ -66,5 +66,20 @@ export function createSyliusClient(opts: SyliusClientOptions) {
       const data = await get<unknown>(`/products/${encodeURIComponent(productCode)}/images`);
       return unwrapHydraCollection<ProductImage>(data);
     },
+
+    async getVariantsByProduct(productIri: string): Promise<HydraCollection<ProductVariant>> {
+      const data = await get<unknown>('/product-variants', { product: productIri });
+      return unwrapHydraCollection<ProductVariant>(data);
+    },
+
+    async getVariantByCode(code: string): Promise<ProductVariant> {
+      return get<ProductVariant>(`/product-variants/${encodeURIComponent(code)}`);
+    },
+
+    async getVariantsByCodes(codes: string[]): Promise<ProductVariant[]> {
+      if (codes.length === 0) return [];
+      const data = await get<unknown>('/product-variants', { 'code[]': codes, itemsPerPage: codes.length });
+      return unwrapHydraCollection<ProductVariant>(data).items;
+    },
   };
 }
