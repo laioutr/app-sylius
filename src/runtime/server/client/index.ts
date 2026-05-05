@@ -9,6 +9,7 @@ export type ProductOption = components['schemas']['ProductOption.jsonld'];
 export type ProductOptionValue = components['schemas']['ProductOptionValue.jsonld'];
 export type Order = components['schemas']['Order.jsonld-sylius.shop.cart.show'];
 export type Taxon = components['schemas']['Taxon.jsonld-sylius.shop.taxon.show'];
+export type TaxonBranch = components['schemas']['Taxon.jsonld-sylius.shop.taxon_tree.branch'];
 
 export interface SyliusListParams {
   page?: number;
@@ -162,6 +163,15 @@ export function createSyliusClient(opts: SyliusClientOptions) {
       if (response.status === 404) return null;
       if (!data) throw new Error(`getTaxonByCode(${code}) failed: ${response.status}`);
       return data as Taxon;
+    },
+
+    async getTaxonBranch(code: string): Promise<TaxonBranch | null> {
+      const { data, response } = await client.GET('/api/v2/shop/taxon-tree/{code}/branch', {
+        params: { path: { code } },
+      });
+      if (response.status === 404) return null;
+      if (!data) throw new Error(`getTaxonBranch(${code}) failed: ${response.status}`);
+      return data as TaxonBranch;
     },
 
     async createCart(input?: { localeCode?: string }): Promise<Order> {
