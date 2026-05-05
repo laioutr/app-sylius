@@ -72,6 +72,15 @@ export function createSyliusClient(opts: SyliusClientOptions) {
       return unwrapHydraCollection<ProductVariant>(data);
     },
 
+    async getVariantsByProducts(productIris: string[]): Promise<ProductVariant[]> {
+      if (productIris.length === 0) return [];
+      const data = await get<unknown>('/product-variants', {
+        'product[]': productIris,
+        itemsPerPage: 100,
+      });
+      return unwrapHydraCollection<ProductVariant>(data).items;
+    },
+
     async getVariantByCode(code: string): Promise<ProductVariant> {
       return get<ProductVariant>(`/product-variants/${encodeURIComponent(code)}`);
     },
