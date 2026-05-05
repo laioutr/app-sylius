@@ -180,14 +180,12 @@ export function createSyliusClient(opts: SyliusClientOptions) {
      * chain instead of walking parents one at a time.
      */
     async getTaxonPath(code: string): Promise<TaxonPathNode[]> {
-      const url = new URL(`taxon-tree/${encodeURIComponent(code)}/path`, apiURL.endsWith('/') ? apiURL : `${apiURL}/`).toString();
-      const res = await fetch(url, {
-        headers: { Accept: JSON_LD, 'Accept-Language': locale },
+      const { data, response } = await client.GET('/api/v2/shop/taxon-tree/{code}/path', {
+        params: { path: { code } },
       });
-      if (res.status === 404) return [];
-      if (!res.ok) throw new Error(`getTaxonPath(${code}) failed: ${res.status}`);
-      const body = (await res.json()) as unknown;
-      return unwrapHydraCollection<TaxonPathNode>(body).items;
+      if (response.status === 404) return [];
+      if (!data) throw new Error(`getTaxonPath(${code}) failed: ${response.status}`);
+      return unwrapHydraCollection<TaxonPathNode>(data as never).items;
     },
 
     async createCart(input?: { localeCode?: string }): Promise<Order> {
