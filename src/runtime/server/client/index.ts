@@ -53,5 +53,18 @@ export function createSyliusClient(opts: SyliusClientOptions) {
       const data = await get<unknown>('/products', buildListQuery(params, itemsPerPage));
       return unwrapHydraCollection<Product>(data);
     },
+
+    async getProductByCode(code: string): Promise<Product> {
+      return get<Product>(`/products/${encodeURIComponent(code)}`);
+    },
+
+    async getProductBySlug(slug: string): Promise<Product> {
+      return get<Product>(`/products-by-slug/${encodeURIComponent(slug)}`);
+    },
+
+    async getProductImages(productCode: string): Promise<HydraCollection<ProductImage>> {
+      const data = await get<unknown>(`/products/${encodeURIComponent(productCode)}/images`);
+      return unwrapHydraCollection<ProductImage>(data);
+    },
   };
 }
