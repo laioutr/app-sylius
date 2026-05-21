@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-empty-object-type */
 import { createResolver, defineNuxtModule, installModule } from '@nuxt/kit';
 import { defu } from 'defu';
 import { registerLaioutrApp } from '@laioutr-core/kit';
@@ -7,17 +6,16 @@ import { name, version } from '../package.json';
 /**
  * The options the module adds to the nuxt.config.ts.
  */
-export interface ModuleOptions {}
-
-/**
- * The config the module adds to nuxt.runtimeConfig.public['my-laioutr-app']
- */
-export interface RuntimeConfigModulePublic {}
-
-/**
- * The config the module adds to nuxt.runtimeConfig['my-laioutr-app']
- */
-export interface RuntimeConfigModulePrivate extends ModuleOptions {}
+export interface ModuleOptions {
+  /** Sylius Shop API base URL. Example: "http://localhost/api/v2/shop" */
+  apiURL: string;
+  /** Fallback Accept-Language header. Default: "en_US" */
+  defaultLocale?: string;
+  /** LiipImagine filter for image URLs. Default: "sylius_large" */
+  imageFilter?: string;
+  /** Pagination default for list queries. Default: 20 */
+  itemsPerPage?: number;
+}
 
 export default defineNuxtModule<ModuleOptions>({
   meta: {
@@ -26,12 +24,25 @@ export default defineNuxtModule<ModuleOptions>({
     configKey: name, // configKey must match package name
   },
   // Default configuration options of the Nuxt module
-  defaults: {},
+  defaults: {
+    apiURL: 'http://localhost/api/v2/shop',
+    defaultLocale: 'en_US',
+    imageFilter: 'sylius_large',
+    itemsPerPage: 20,
+  } as ModuleOptions,
   async setup(_options, nuxt) {
     const { resolve } = createResolver(import.meta.url);
     const resolveRuntimeModule = (path: string) => resolve('./runtime', path);
 
     nuxt.options.build.transpile.push(resolve('./runtime'));
+
+    // Make app-assets publicly available (logo etc., served from /app-sylius/...)
+    nuxt.options.nitro ??= {};
+    nuxt.options.nitro.publicAssets ??= [];
+    nuxt.options.nitro.publicAssets.push({
+      dir: resolveRuntimeModule('./app/public'),
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+    });
 
     // Runtime configuration for this module
     // These two statements can be removed if you don't provide a runtime config
